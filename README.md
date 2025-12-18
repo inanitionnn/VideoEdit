@@ -1,331 +1,86 @@
 # VideoEdit
 
-> Утиліти для форматування відео для Telegram
+> Bash utilities for converting videos to WebM format optimized for Telegram with automatic quality and size management.
 
-Колекція bash-скриптів для обробки та форматування відеофайлів у формат WebM, оптимізований для Telegram з автоматичним управлінням розміром та якістю.
+## Tools
 
-## Утиліти
+### `vidcut` — Process single video
 
-### 1. `vidcut` — Обробка одного відеофайлу
-
-Скрипт для обрізання, обрізки та перекодування одного відеофайлу в WebM формат з автоматичним підбором якості.
-
-#### Синтаксис
+Converts a video file to WebM format with automatic quality adjustment, time trimming, and cropping.
 
 ```bash
-vidcut input_file output_file [ss] [to] [crop_w] [crop_h] [crop_x] [crop_y]
+vidcut input_file output_file [start_time] [end_time] [crop_w] [crop_h] [crop_x] [crop_y]
 ```
 
-#### Параметри
+**Parameters:**
+- `input_file` — Input video file (required)
+- `output_file` — Output WebM file (required)
+- `start_time` — Start time in seconds (default: 0)
+- `end_time` — End time in seconds (default: full video)
+- `crop_w`, `crop_h` — Crop dimensions in pixels (default: 100%)
+- `crop_x`, `crop_y` — Crop position offset (default: 0)
 
-| Параметр | Опис | Значення за замовчуванням |
-|----------|------|--------------------------|
-| `input_file` | Вхідний відеофайл | — (обов'язковий) |
-| `output_file` | Вихідний WebM файл | — (обов'язковий) |
-| `ss` | З якої секунди розпочати (обрізання по часу) | `0` |
-| `to` | По яку секунду закінчити (обрізання по часу) | — (не обрізається) |
-| `crop_w` | Ширина crop по осі X (пікселі) | `100%` |
-| `crop_h` | Висота crop по осі Y (пікселі) | `100%` |
-| `crop_x` | Стартова позиція crop по осі X | `0` |
-| `crop_y` | Стартова позиція crop по осі Y | `0` |
-
-#### Приклади
-
-**Базова обробка без обрізки:**
+**Examples:**
 ```bash
 vidcut input.mp4 output.webm
-```
-
-**Обрізання з часу 1s по 6s:**
-```bash
 vidcut input.mp4 output.webm 1 6
-```
-
-**Обрізання з крою (720×720, зміщення 0:150):**
-```bash
 vidcut input.mp4 output.webm 0 0 720 720 0 150
 ```
 
-**Повний приклад з обрізанням по часу та крою:**
-```bash
-vidcut input.mp4 output.webm 1 6 100 100 50 50
-```
-
-#### Функціональність
-
-- ✔️ Автоматичне обрізання відео по часу (ss/to)
-- ✔️ Обрізка кадру (crop) по заданих координатах
-- ✔️ Масштабування: максимальна сторона 512px
-- ✔️ Автоматичний розрахунок швидкості відтворення (PTS) для відео < 3 сек
-- ✔️ **Автопідбір якості (CRF)** — гарантує вихідний файл ≤ 256 KB
-- ✔️ Оптимізація для Telegram (формат yuva420p, 30fps, WebM VP9)
-- ✔️ Видалення звукової доріжки (тільки відео)
-
-#### Обмеження
-
-- Мінімальна тривалість після обрізання: 0.01 сек
-- Максимальний розмір вихідного файлу: 256 KB
-- При недосяженні розміру 256 KB код помилки: 3
+**Features:**
+- Time-based trimming
+- Crop and scale to 512px max
+- Automatic quality adjustment (CRF) to maintain ≤ 256 KB file size
+- Optimized for Telegram (30fps, yuva420p format)
+- No audio track
 
 ---
 
-### 2. `vidbatch` — Пакетна обробка всіх відеофайлів
+### `vidbatch` — Batch process all videos
 
-Скрипт для автоматичної обробки всіх відеофайлів у директорії за допомогою `vidcut`.
-
-#### Синтаксис
+Automatically converts all video files in a directory using `vidcut`.
 
 ```bash
 vidbatch input_directory output_directory
 ```
 
-#### Параметри
+**Supported formats:** MP4, MOV, WebM, MKV, AVI, FLV
 
-| Параметр | Опис |
-|----------|------|
-| `input_directory` | Директорія з вхідними відеофайлами |
-| `output_directory` | Директорія для збереження результатів |
-
-#### Приклади
-
+**Example:**
 ```bash
-vidbatch ~/video ~/video_results
-```
-
-```bash
-vidbatch /path/to/source /path/to/destination
-```
-
-#### Підтримувані формати
-
-- `.mp4` — MPEG-4 Video
-- `.mov` — QuickTime Movie
-- `.webm` — WebM Video
-- `.mkv` — Matroska Video
-- `.avi` — Audio Video Interleave
-- `.flv` — Flash Video
-
-#### Функціональність
-
-- ✔️ Рекурсивний пошук видеофайлів у вказаній директорії
-- ✔️ Автоматичне створення вихідної директорії
-- ✔️ Кольоровий вивід статусу (зелений ✔️, жовтий ⚠️, червоний ✘)
-- ✔️ Прогрес-бар з відліком файлів [N/Total]
-- ✔️ Підсумкова статистика (успішно/з помилками)
-- ✔️ Обработка помилок з детальним логуванням
-
-#### Вихід
-
-```
-Результати будуть збережені в: /path/to/destination
-Знайдено файлів для обробки: 5
--------------------------------------
-[1/5] Обробка файлу: video1.mp4
-✔ Збережено: /path/to/destination/video1.webm (150000 байт, CRF=30, PTS=1.0, DURATION=3.45)
-[2/5] Обробка файлу: video2.mov
-✔ Збережено: /path/to/destination/video2.webm (220000 байт, CRF=40, PTS=0.75, DURATION=4.0)
-...
--------------------------------------
-Обробку завершено!
-✔ Успішно: 5
-✘ З помилками: 0
-```
-
----
-
-## Встановлення
-
-### Вимоги
-
-- Bash 4.0+
-- `ffmpeg` та `ffprobe`
-- `bc` (калькулятор для bash)
-- `tput` (для кольорів)
-
-### Встановлення залежностей
-
-**На Ubuntu/Debian:**
-```bash
-sudo apt update
-sudo apt install ffmpeg bc
-```
-
-**На macOS (Homebrew):**
-```bash
-brew install ffmpeg bc
-```
-
-### Налаштування PATH
-
-1. Зробіть скрипти виконуваними:
-```bash
-chmod +x bin/vidcut bin/vidbatch
-```
-
-2. **Варіант 1: Додайте в PATH** (постійно)
-```bash
-export PATH="$PATH:$(pwd)/bin"
-```
-
-Додайте цей рядок в `~/.bashrc` або `~/.zshrc` для постійного ефекту.
-
-3. **Варіант 2: Створіть симлінки** (як глобальні команди)
-```bash
-sudo ln -s $(pwd)/bin/vidcut /usr/local/bin/vidcut
-sudo ln -s $(pwd)/bin/vidbatch /usr/local/bin/vidbatch
-```
-
-Тепер команди будуть доступні з будь-якої директорії:
-```bash
-vidcut input.mp4 output.webm
 vidbatch ~/videos ~/videos_processed
 ```
 
 ---
 
-## Приклади використання
+## Installation
 
-### Приклад 1: Обробка одного відео
-
-```bash
-# Базова обробка (без обрізки)
-vidcut my_video.mov output.webm
-
-# З часовим обрізанням (1-6 сек)
-vidcut my_video.mp4 output.webm 1 6
-
-# З крою та часовим обрізанням
-vidcut my_video.mov output.webm 2 8 720 720 150 200
-```
-
-### Приклад 2: Обробка всіх відео у папці
+### Requirements
 
 ```bash
-# Обробити всі відео з ~/Downloads і зберегти в ~/Downloads/processed
-vidbatch ~/Downloads ~/Downloads/processed
+# Ubuntu/Debian
+sudo apt install ffmpeg bc
 
-# Обробити всі відео з поточної директорії
-vidbatch ./videos ./videos_output
+# macOS
+brew install ffmpeg bc
 ```
 
-### Приклад 3: Робочий цикл для Telegram
+### Setup
 
-1. Запишіть або завантажте відеоматеріал у папку `~/telegram_videos`
-2. Запустіть обробку:
-   ```bash
-   vidbatch ~/telegram_videos ~/telegram_videos_ready
-   ```
-3. Всі готові WebM файли розміром ≤ 256 KB знаходяться в `~/telegram_videos_ready`
-4. Завантажте на Telegram
-
----
-
-## Коди виходу
-
-### vidcut
-
-| Код | Значення |
-|-----|----------|
-| `0` | ✔️ Успіх |
-| `1` | ✘ Недостатньо аргументів |
-| `2` | ✘ Відео надто коротке після обрізання (< 0.01 сек) |
-| `3` | ✘ Неможливо зменшити розмір до 256 KB |
-
-### vidbatch
-
-| Код | Значення |
-|-----|----------|
-| `0` | ✔️ Успіх |
-| `1` | ✘ Неправильне використання або вхідна директорія не існує |
-
----
-
-## Технічні деталі
-
-### Алгоритм vidcut
-
-1. **Обрізання по часу**: Вхідний файл обрізається за допомогою `-ss` (start) і `-to` (end)
-2. **Першопереодування**: libx264 кодек, preset ultrafast
-3. **Перевірка тривалості**: Переконується, що відео достатньо довге (> 0.01 сек)
-4. **Розрахунок PTS**: Для відео < 3 сек автоматично розраховується коефіцієнт сповільнення для комфортного перегляду
-5. **Обрізка**: Якщо вказано crop_w та crop_h, застосовується crop фільтр
-6. **Масштабування**: Максимальна сторона 512px з збереженням співвідношення сторін
-7. **Конвертація**: VP9 кодек з автопідбором CRF для досягнення максимально можливої якості при обмеженні розміру ≤ 256 KB
-
-### Фільтри FFmpeg
-
-Основний фільтр відео:
-```
-setpts={PTS}*PTS,fps=30,scale=...,format=yuva420p[,crop=...]
-```
-
-- `setpts`: Змінює тимінг кадрів за коефіцієнтом PTS
-- `fps=30`: Установка 30 кадрів на секунду
-- `scale`: Масштабування до 512px (макс)
-- `format=yuva420p`: Прозорість + оптимальний формат для WebM
-- `crop`: Опціональне обрізання кадру
-
----
-
-## Поради та трюки
-
-### 1. Пришвидшена обробка для тестування
 ```bash
-# Обробити тільки перші 3 секунди для тесту якості
-vidcut input.mp4 test_output.webm 0 3
-```
+# Make executable
+chmod +x bin/vidcut bin/vidbatch
 
-### 2. Обробка конкретного формату
-```bash
-# Обробити тільки .mp4 файли (ручна фільтрація)
-for f in ~/videos/*.mp4; do
-  vidcut "$f" ~/videos_output/"$(basename "$f" .mp4).webm"
-done
-```
+# Option 1: Add to PATH
+export PATH="$PATH:$(pwd)/bin"
 
-### 3. Паралельна обробка (для мощних машин)
-```bash
-# Обробити 4 файли одночасно
-for f in ~/videos/*; do
-  vidcut "$f" ~/videos_output/"$(basename "$f" .${f##*.}).webm" &
-  if (( $(jobs -r -p | wc -l) >= 4 )); then wait -n; fi
-done
-wait
-```
-
-### 4. Перевірка результатів
-```bash
-# Знайти всі .webm файли та їх розмір
-find ~/videos_output -name "*.webm" -exec ls -lh {} \;
+# Option 2: Install globally
+sudo cp bin/vidcut bin/vidbatch /usr/local/bin/
 ```
 
 ---
 
-## Встановлення як системна команда
+## License
 
-Для постійного встановлення як команди системи:
-
-```bash
-sudo cp bin/vidcut /usr/local/bin/
-sudo cp bin/vidbatch /usr/local/bin/
-sudo chmod +x /usr/local/bin/vidcut /usr/local/bin/vidbatch
-```
-
-Тепер команди будуть доступні скрізь:
-```bash
-vidcut input.mp4 output.webm
-vidbatch ~/videos ~/videos_output
-```
-
----
-
-## Лицензія
-
-MIT License
-
----
-
-## Контрибуція
-
-Запропоновані поліпшення та баг-репорти вітаються!
+MIT
 
