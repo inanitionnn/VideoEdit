@@ -1,0 +1,78 @@
+#!/bin/bash
+
+if [ "$#" -lt 2 ]; then
+  echo "Використання: $0 input_file output_file [ss] [to] [crop_w crop_h [crop_x crop_y]]"
+  exit 1
+fi
+
+INPUT_FILE="$1"
+OUTPUT_FILE="$2"
+SS="${3:-0}"
+TO="$4"
+CROP_W="$5"
+CROP_H="$6"
+CROP_X="${7:-0}"
+CROP_Y="${8:-0}"
+
+TMP_CUT="/tmp/tmp_vidcut_cut.mkv"
+TMP_OUT="/tmp/tmp_vidcut_out.webm"
+
+# 1. Обрізання з перекодуванням
+if [ -n "$TO" ]; then
+  ffmpeg -ss "$SS" -to "$TO" -i "$INPUT_FILE" -c:v libx264 -preset ultrafast -an -y "$TMP_CUT" >/dev/null 2>&1
+else
+  ffmpeg -ss "$SS" -i "$INPUT_FILE" -c:v libx264 -preset ultrafast -an -y "$TMP_CUT" >/dev/null 2>&1
+fi
+
+# 2. Перевірка тривалості з очікуванням
+for i in {1..5}; do
+  DURATION=$(ffprobe -v error -show_entries format=duration \
+    -of default=noprint_wrappers=1:nokey=1 "$TMP_CUT")
+  DURATION=$(printf "%.5f" "$DURATION")
+  if (( $(echo "$DURATION > 0.01" | bc -l) )); then break; fi
+  sleep 0.2
+done
+
+if (( $(echo "$DURATION < 0.01" | bc -l) )); then
+  echo "✘ Надто коротке відео після обрізання ($DURATION с)"
+  exit 2
+fi
+
+# 3. Розрахунок PTS: якщо коротше — не сповільнювати
+if (( $(echo "$DURATION > 3.0" | bc -l) )); then
+  PTS=$(echo "scale=5; 3.0 / $DURATION" | bc)
+else
+  PTS=1.0
+fi
+
+# 4. Побудова фільтра
+FILTER="setpts=${PTS}*PTS,fps=30,scale='if(gt(iw,ih),512,-1)':'if(gt(iw,ih),-1,512)',format=yuva420p"
+
+if [ -n "$CROP_W" ] && [ -n "$CROP_H" ]; then
+  FILTER="crop=${CROP_W}:${CROP_H}:${CROP_X}:${CROP_Y},$FILTER"
+fi
+
+# 5. Автопідбір CRF
+CRF=30
+LIMIT=262144
+MAX_CRF=50
+
+while true; do
+  ffmpeg -i "$TMP_CUT" -filter:v "$FILTER" \
+    -c:v libvpx-vp9 -crf "$CRF" -b:v 0 -an \
+    -t 3 -auto-alt-ref 0 -pix_fmt yuva420p "$TMP_OUT" -y >/dev/null 2>&1
+
+  SIZE=$(stat -c%s "$TMP_OUT")
+  if [ "$SIZE" -le "$LIMIT" ]; then
+    mv "$TMP_OUT" "$OUTPUT_FILE"
+    echo "✔ Збережено: $OUTPUT_FILE ($SIZE байт, CRF=$CRF, PTS=$PTS, DURATION=$DURATION)"
+    break
+  fi
+
+  if [ "$CRF" -ge "$MAX_CRF" ]; then
+    echo "✘ Неможливо зменшити до 256KB. Поточний CRF=$CRF, розмір=$SIZE байт"
+    exit 3
+  fi
+
+  CRF=$((CRF + 2))
+done

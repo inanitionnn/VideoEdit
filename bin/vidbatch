@@ -1,0 +1,75 @@
+#!/bin/bash
+
+# --- Кольори для виводу ---
+GREEN=$(tput setaf 2)
+YELLOW=$(tput setaf 3)
+RED=$(tput setaf 1)
+NC=$(tput sgr0) # No Color
+
+# --- Перевірка аргументів ---
+if [ "$#" -ne 2 ]; then
+  echo "${RED}Помилка: Неправильне використання.${NC}"
+  echo "Вкажіть вхідну та вихідну директорії."
+  echo "Приклад: ${YELLOW}$0 ~/video ~/video_results${NC}"
+  exit 1
+fi
+
+INPUT_DIR="$1"
+OUTPUT_DIR="$2"
+
+# --- Перевірка існування вхідної директорії ---
+if [ ! -d "$INPUT_DIR" ]; then
+  echo "${RED}Помилка: Вхідна директорія '$INPUT_DIR' не знайдена.${NC}"
+  exit 1
+fi
+
+# --- Створення вихідної директорії, якщо її немає ---
+mkdir -p "$OUTPUT_DIR"
+echo "Результати будуть збережені в: ${GREEN}$OUTPUT_DIR${NC}"
+
+# --- Пошук файлів ---
+# shopt -s nullglob: не видавати помилку, якщо файли не знайдені
+shopt -s nullglob
+files=("$INPUT_DIR"/*.{mp4,mov,webm,mkv,avi,flv})
+total=${#files[@]}
+shopt -u nullglob # вимкнути опцію
+
+if [ $total -eq 0 ]; then
+  echo "${YELLOW}У директорії '$INPUT_DIR' не знайдено відеофайлів для обробки.${NC}"
+  exit 0
+fi
+
+echo "Знайдено файлів для обробки: $total"
+echo "-------------------------------------"
+
+# --- Основний цикл обробки ---
+count=0
+success_count=0
+fail_count=0
+
+for f in "${files[@]}"; do
+  ((count++))
+
+  # Отримати ім'я файлу без шляху та розширення
+  base=$(basename -- "$f")
+  filename="${base%.*}"
+
+  # Сформувати шлях для вихідного файлу
+  out="$OUTPUT_DIR/$filename.webm"
+
+  echo "[${count}/${total}] Обробка файлу: ${YELLOW}$base${NC}"
+
+  # Викликати ваш скрипт vidcut
+  if vidcut "$f" "$out"; then
+    ((success_count++))
+  else
+    # vidcut повернув помилку (exit code не 0)
+    # Повідомлення про помилку виведе сам vidcut
+    ((fail_count++))
+  fi
+done
+
+echo "-------------------------------------"
+echo "${GREEN}Обробку завершено!${NC}"
+echo "✔ Успішно: $success_count"
+echo "✘ З помилками: $fail_count"
