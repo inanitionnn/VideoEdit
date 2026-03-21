@@ -62,7 +62,11 @@ while true; do
     -c:v libvpx-vp9 -crf "$CRF" -b:v 0 -an \
     -t 3 -auto-alt-ref 0 -pix_fmt yuva420p "$TMP_OUT" -y >/dev/null 2>&1
 
-  SIZE=$(stat -c%s "$TMP_OUT")
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    SIZE=$(stat -f%z "$TMP_OUT")
+  else
+    SIZE=$(stat -c%s "$TMP_OUT")
+  fi
   if [ "$SIZE" -le "$LIMIT" ]; then
     mv "$TMP_OUT" "$OUTPUT_FILE"
     echo "✔ Збережено: $OUTPUT_FILE ($SIZE байт, CRF=$CRF, PTS=$PTS, DURATION=$DURATION)"
